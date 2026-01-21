@@ -45,11 +45,12 @@ python mouseLeap/leap_mouse.py
 ```
 Then move your hand over the controller: you're controlling the mouse!
 
-+ Pinch strength 0.7+ → engages click/drag
-+ Pinch strength must drop below 0.3 to release (big gap = sticky)
-+ Pinch strength is smoothed to filter out hand tremors
-+ Quick pinch-release = click
-+ Hold pinch for 0.15s+ = drag starts
++ Quick pinch → Click
++ Double-pinch → Double-click
++ Pinch and hold → Drag (release pinch to drop)
++ Make a fist → Pause tracking
++ Press Ctrl+C to exit
+
 
 ### tuning
 
