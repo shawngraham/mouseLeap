@@ -1,16 +1,14 @@
 # mouseLeap
 Python script for controlling the mouse using [ultra leap](https://www.ultraleap.com/) Leap 2 controller.
 
-## Leap Motion Mouse Controller Requirements
-## ==========================================
 
 ## Mouse control library
 pynput>=1.7.0
 
-## Screen info for multi-monitor support (optional but recommended)
+## Screen info for multi-monitor support (optional)
 screeninfo>=0.8.0
 
-Note: The 'leap' module (leapc-python-api) must be installed separately from the official Ultraleap repository:
+The 'leap' module (leapc-python-api) must be installed separately from the official Ultraleap repository:
 [https://github.com/ultraleap/leapc-python-bindings]
 
 ## Installation of the leap bit:
@@ -22,35 +20,52 @@ pip install -e leapc-python-api
 pip install cffi
 pip install numpy
 ```
+
+Then clone or download this repository: 
+
+```
+git clone https://shawngraham/mouseLeap
+```
+
 Directories should be arranged like this:
 
 ```
 |
-|-your project
+|-your_project
   |- mouseLeap
   |- leapc-python-api
 ```
 
-Python 3.12.
+We wrote this in a Python 3.12 environment, via conda.
+
+## Give it a whirl
 
 ```bash
 python mouseLeap/leap_mouse.py
 ```
 Then move your hand over the controller: you're controlling the mouse!
 
-+ Click: Quick dip down and back up
-+ Double-click: Two quick dips in succession
-+ Drag: Dip down and hold low for ~0.2 seconds → drag starts → move while holding low → raise hand to release
++ Pinch strength 0.7+ → engages click/drag
++ Pinch strength must drop below 0.3 to release (big gap = sticky)
++ Pinch strength is smoothed to filter out hand tremors
++ Quick pinch-release = click
++ Hold pinch for 0.15s+ = drag starts
 
 ### tuning
 
 ```
-# If dip is triggering too easily, require a deeper dip
-python leap_mouse.py --dip-distance 50
+# More smoothing on pinch detection (default 0.5, try higher)
+python leap_mouse.py --pinch-smoothing 0.7
 
-# If drag starts too quickly (accidental drags), increase hold time
-python leap_mouse.py --drag-hold 0.3
+# Even stickier - require pinch to drop very low to release
+python leap_mouse.py --pinch-release 0.2
 
-# Combine as needed
-python leap_mouse.py --dip-distance 45 --drag-hold 0.25
+# Require stronger pinch to start (if accidental triggers)
+python leap_mouse.py --pinch-engage 0.8
+
+# Longer hold before drag starts (if accidental drags)
+python leap_mouse.py --drag-delay 0.25
+
+# Combine them
+python leap_mouse.py --pinch-smoothing 0.7 --pinch-release 0.2 --drag-delay 0.2
 ```
