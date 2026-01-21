@@ -44,17 +44,50 @@ We wrote this in a Python 3.12 environment, via conda.
 python mouseLeap/leap_mouse.py
 ```
 Then move your hand over the controller: you're controlling the mouse!
+## Leap Motion Mouse Controller - Controls
 
-+ Quick pinch → Click
-+ Double-pinch → Double-click
-+ Pinch and hold → Drag (release pinch to drop)
-+ Make a fist → Pause tracking
-+ Press Ctrl+C to exit
+### Right Hand Only
 
+| Gesture | Action |
+|---------|--------|
+| Move hand | Move cursor |
+| Quick pinch | Click |
+| Double-pinch | Double-click |
+| Pinch and hold | Drag |
+
+### Two Hands
+
+| Left Hand | Right Hand | Action |
+|-----------|------------|--------|
+| Fist | Open | **Scroll** – move right hand up/down to scroll |
+| Open | Open | **Pan** – move both hands together (middle-click drag) |
+| Pinch | Pinch | **Zoom** – spread hands apart or bring together |
+| Fist | Fist (hold 1s) | **Exit program** |
+
+
+### Command Line Options
+```bash
+# Cursor movement
+--sensitivity, -s     Movement multiplier (default: 1.5)
+--smoothing, -m       Cursor smoothing 0-1 (default: 0.3)
+
+# Pinch/click tuning
+--pinch-engage        Strength to start click/drag (default: 0.7)
+--pinch-release       Strength to release (default: 0.3, lower = stickier)
+--pinch-smoothing     Smoothing to reduce tremor (default: 0.5)
+--drag-delay          Seconds before drag starts (default: 0.15)
+
+# Two-hand gestures
+--scroll-sensitivity  Scroll speed (default: 0.05)
+--zoom-sensitivity    Zoom speed (default: 0.02)
+```
 
 ### tuning
 
 ```
+# Scroll/zoom too fast or slow?
+python leap_mouse.py --scroll-sensitivity 0.08 --zoom-sensitivity 0.03
+
 # More smoothing on pinch detection (default 0.5, try higher)
 python leap_mouse.py --pinch-smoothing 0.7
 
