@@ -182,8 +182,7 @@ class Mode(Enum):
     CURSOR = auto()      # Right hand only - normal cursor control
     SCROLL = auto()      # Left fist + right open - scroll mode
     PAN = auto()         # Both hands open - pan mode
-    ZOOM = auto()        # Both hands pinching - zoom mode
-    EXIT_PENDING = auto() # Both fists - waiting to confirm exit
+    ZOOM = auto()        # Both fists - zoom mode (hold still to exit)
 
 
 @dataclass
@@ -206,7 +205,7 @@ class Config:
     drag_delay: float = 0.15
     
     # Exit gesture timing
-    exit_hold_time: float = 1.0       # Seconds to hold both fists to exit
+    exit_hold_time: float = 2.0       # Seconds to hold both fists to exit
     
     # Scroll settings
     scroll_sensitivity: float = 0.05  # Scroll amount per mm of hand movement
@@ -343,21 +342,18 @@ class LeapMouseListener(leap.Listener):
         left_state = self.get_hand_state(left_hand)
         right_state = self.get_hand_state(right_hand)
         
-        # Both fists = exit
-        if left_state == 'fist' and right_state == 'fist':
-            return Mode.EXIT_PENDING
-        
         # Left fist + right open = scroll
         if left_state == 'fist' and right_state in ('open', 'neutral'):
             return Mode.SCROLL
         
-        # Both hands pinching = zoom
-        if left_state == 'pinch' and right_state == 'pinch':
-            return Mode.ZOOM
-        
         # Both hands open = pan
         if left_state in ('open', 'neutral') and right_state in ('open', 'neutral'):
             return Mode.PAN
+        
+        # Both fists = zoom (spread/bring together)
+        # Hold fists still for 1s to exit (handled in zoom handler)
+        if left_state == 'fist' and right_state == 'fist':
+            return Mode.ZOOM
         
         # Default to cursor mode
         return Mode.CURSOR
@@ -428,7 +424,7 @@ class LeapMouseListener(leap.Listener):
             self.last_hand_distance = None
             self.last_pan_pos = None
             
-            if new_mode != Mode.EXIT_PENDING:
+            if new_mode != Mode.ZOOM:
                 self.exit_start_time = None
             
             # Announce mode change
@@ -436,8 +432,7 @@ class LeapMouseListener(leap.Listener):
                 Mode.CURSOR: "Cursor",
                 Mode.SCROLL: "Scroll",
                 Mode.PAN: "Pan",
-                Mode.ZOOM: "Zoom",
-                Mode.EXIT_PENDING: "Exit (hold fists)"
+                Mode.ZOOM: "Zoom (spread/pinch fists, hold to exit)",
             }
             if self.mode != new_mode:
                 print(f"  [{mode_names.get(new_mode, 'Unknown')} Mode]")
@@ -526,7 +521,10 @@ class LeapMouseListener(leap.Listener):
         self.last_pan_pos = (avg_x, avg_y)
     
     def handle_zoom_mode(self, left_hand, right_hand):
-        """Handle zoom mode - distance between hands controls zoom."""
+        """Handle zoom mode - distance between fists controls zoom.
+        Spread fists apart = zoom in, bring together = zoom out.
+        Hold fists still for 1s = exit.
+        """
         # Calculate distance between hands
         dx = right_hand.palm.position.x - left_hand.palm.position.x
         dy = right_hand.palm.position.y - left_hand.palm.position.y
@@ -535,26 +533,28 @@ class LeapMouseListener(leap.Listener):
         
         if self.last_hand_distance is not None:
             delta = distance - self.last_hand_distance
+            # Positive delta (spreading) = zoom in (positive scroll)
+            # Negative delta (bringing together) = zoom out (negative scroll)
             scroll_amount = int(delta * self.config.zoom_sensitivity)
             
             if scroll_amount != 0:
                 self.mouse.scroll(0, scroll_amount)
+                # Reset exit timer if zooming
+                self.exit_start_time = None
+            else:
+                # Hands not moving - check for exit gesture
+                current_time = time.time()
+                if self.exit_start_time is None:
+                    self.exit_start_time = current_time
+                    print(f"  [Hold fists still for {self.config.exit_hold_time}s to exit...]")
+                elif current_time - self.exit_start_time >= self.config.exit_hold_time:
+                    print("\n  [EXIT GESTURE DETECTED]")
+                    self.exit_callback()
+        else:
+            # First frame of zoom - start exit timer
+            self.exit_start_time = time.time()
         
         self.last_hand_distance = distance
-    
-    def handle_exit_pending(self):
-        """Handle exit gesture - both fists held."""
-        current_time = time.time()
-        
-        if self.exit_start_time is None:
-            self.exit_start_time = current_time
-            print(f"  [Hold fists for {self.config.exit_hold_time}s to exit...]")
-        
-        elapsed = current_time - self.exit_start_time
-        
-        if elapsed >= self.config.exit_hold_time:
-            print("\n  [EXIT GESTURE DETECTED]")
-            self.exit_callback()
     
     def on_tracking_event(self, event):
         """Called when a tracking event is received."""
@@ -595,9 +595,6 @@ class LeapMouseListener(leap.Listener):
         
         elif self.mode == Mode.ZOOM and left_hand and right_hand:
             self.handle_zoom_mode(left_hand, right_hand)
-        
-        elif self.mode == Mode.EXIT_PENDING:
-            self.handle_exit_pending()
     
     def on_connection_event(self, event):
         print("[Connected to Leap Motion service]")
@@ -693,8 +690,8 @@ Examples:
     print("  TWO HANDS:")
     print("    Left fist + Right open    → Scroll (move right hand up/down)")
     print("    Both hands open           → Pan (move both hands)")
-    print("    Both hands pinch          → Zoom (spread/pinch hands)")
-    print("    Both fists (hold 1s)      → EXIT PROGRAM")
+    print("    Both fists                → Zoom (spread apart / bring together)")
+    print("    Both fists (hold still)   → EXIT PROGRAM")
     print("-" * 60)
     
     # Exit flag
